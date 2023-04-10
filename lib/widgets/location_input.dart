@@ -10,7 +10,7 @@ import '../screens/map_screen.dart';
 
 class LocationInput extends StatefulWidget {
   final Function onSelectPlace;
-  const LocationInput(this.onSelectPlace,{super.key});
+  const LocationInput(this.onSelectPlace, {super.key});
 
   @override
   State<LocationInput> createState() => _LocationInputState();
@@ -37,25 +37,25 @@ class _LocationInputState extends State<LocationInput> {
     widget.onSelectPlace(currLocn.latitude!, currLocn.longitude!);
   }
 
-  Future<void> _selLocn() async {
-    final scnCtx = Navigator.of(context);
-    LatLng? selLocn;
-    final currLocn = await Location().getLocation();
-    mapPointCoords = LatLng(currLocn.latitude!, currLocn.longitude!);
-    selLocn = await scnCtx.push<LatLng>(MaterialPageRoute(
-    fullscreenDialog: true,
-    builder: ((context) => MapScreen(mapPointCoords, isSelecting: true)),
-    ));
-    if (selLocn == null) {
+  Future<void> _selectOnMap() async {
+    final selectedLocation = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (ctx) => const MapScreen(
+              isSelecting: true,
+            ),
+      ),
+    );
+    if (selectedLocation == null) {
       return;
     }
     setState(() {
-      mapPointCoords = selLocn;
+      mapPointCoords = selectedLocation;
       Future.delayed(const Duration(milliseconds: 50), () {
         mapController.move(mapPointCoords!, 17.0);
       });
     });
-    widget.onSelectPlace(currLocn.latitude!, currLocn.longitude!);
+    widget.onSelectPlace(selectedLocation.latitude, selectedLocation.longitude);
   }
 
   @override
@@ -111,7 +111,7 @@ class _LocationInputState extends State<LocationInput> {
           label: const Text('Current Location'),
         ),
         TextButton.icon(
-          onPressed: _selLocn,
+          onPressed: _selectOnMap,
           icon: const Icon(Icons.map),
           label: const Text('Select on Map'),
         ),

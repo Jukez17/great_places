@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/great_places.dart';
@@ -42,7 +41,10 @@ class PlaceDetailScreen extends StatelessWidget {
                 MaterialPageRoute(
                   fullscreenDialog: true,
                   builder: (ctx) =>
-                      MapScreen(LatLng(selectedPlace.location!.latitude, selectedPlace.location!.longitude), isSelecting: false,),
+                      MapScreen(
+                        initialLocation: selectedPlace.location!,
+                        isSelecting: false,
+                      ),
                 ),
               );
             },

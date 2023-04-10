@@ -6,15 +6,14 @@ import 'package:latlong2/latlong.dart';
 import '../models/place.dart';
 
 class MapScreen extends StatefulWidget {
-  //final LatLng initLocn;
-  LatLng? initialLocation = LatLng(25.46816, 65.01236);
-  final bool? isSelecting;
+  final PlaceLocation initialLocation;
+  final bool isSelecting;
 
-  MapScreen(
-    this.initialLocation,
-    { 
+  const MapScreen({
+    this.initialLocation =
+        const PlaceLocation(latitude: 65.01236, longitude: 25.46816),
     this.isSelecting = false,
-    super.key,
+    super.key
   });
 
   @override
@@ -22,13 +21,13 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  LatLng? _pickLocn;
+  LatLng? _pickedLocation;
   MapController? mapController;
 
   void _selectLocn(dynamic tapPosn, LatLng posn) {
     debugPrint('MapScreen:_selectLocn: $posn');
     setState(() {
-      _pickLocn = posn;
+      _pickedLocation = posn;
     });
   }
 
@@ -38,12 +37,12 @@ class _MapScreenState extends State<MapScreen> {
       appBar: AppBar(
         title: const Text('Select place'),
         actions: [
-          if (widget.isSelecting!)
+          if (widget.isSelecting)
             IconButton(
-              onPressed: _pickLocn == null
+              onPressed: _pickedLocation == null
                   ? null
                   : () {
-                      Navigator.of(context).pop(_pickLocn);
+                      Navigator.of(context).pop(_pickedLocation);
                     },
               icon: const Icon(Icons.check),
             )
@@ -51,9 +50,10 @@ class _MapScreenState extends State<MapScreen> {
       ),
       body: FlutterMap(
         options: MapOptions(
-          center: LatLng(widget.initialLocation!.latitude, widget.initialLocation!.longitude),
+          center: LatLng(widget.initialLocation.latitude,
+              widget.initialLocation.longitude),
           zoom: 15.0,
-          onTap: widget.isSelecting! ? _selectLocn : null,
+          onTap: widget.isSelecting ? _selectLocn : null,
         ),
         children: [
           TileLayer(
@@ -62,11 +62,15 @@ class _MapScreenState extends State<MapScreen> {
             additionalOptions: const {'hl': 'en'},
             subdomains: const ['mt0', 'mt1', 'mt2', 'mt3'],
           ),
-          if (_pickLocn != null)
+          if (_pickedLocation != null)
             MarkerLayer(
               markers: [
                 Marker(
-                  point: LatLng(_pickLocn!.latitude, _pickLocn!.longitude),
+                  point: _pickedLocation ??
+                      LatLng(
+                        widget.initialLocation.latitude,
+                        widget.initialLocation.longitude,
+                      ),
                   builder: (context) => const Icon(
                     Icons.location_on,
                     size: 25,
@@ -74,7 +78,7 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
               ],
-            ),            
+            ),
         ],
       ),
     );
