@@ -62,7 +62,7 @@ class PlaceDetailScreen extends StatelessWidget {
               );
             },
             child: SizedBox(
-              height: 250,
+              height: 330,
               width: double.infinity,
               child: FlutterMap(
                 options: MapOptions(
