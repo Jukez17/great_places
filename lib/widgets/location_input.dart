@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:location/location.dart';
-
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map/plugin_api.dart';
-// ignore: depend_on_referenced_packages
+import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geocoding/geocoding.dart' as geo;
 
-import '../screens/map_screen.dart';
+import '../models/place.dart';
+import '../screens/map.dart';
 
 class LocationInput extends StatefulWidget {
+  const LocationInput({super.key, required this.onSelectPlace});
+
   final Function onSelectPlace;
-  const LocationInput(this.onSelectPlace, {super.key});
 
   @override
-  State<LocationInput> createState() => _LocationInputState();
+  State<LocationInput> createState() {
+    return _LocationInputState();
+  }
 }
 
 class _LocationInputState extends State<LocationInput> {
-  LatLng? mapPointCoords;
+  PlaceLocation? _pickedLocation;
   late final MapController mapController;
+  var _isGettingLocation = false;
 
   @override
   void initState() {
@@ -26,36 +29,83 @@ class _LocationInputState extends State<LocationInput> {
     super.initState();
   }
 
-  Future<void> _getLocn() async {
-    final currLocn = await Location().getLocation();
+  Future<List> getLocationAddress(double latitude, double longitude) async {
+    List<geo.Placemark> placemark =
+        await geo.placemarkFromCoordinates(latitude, longitude);
+    return placemark;
+  }
+
+  Future<void> _savePlace(double latitude, double longitude) async {
+    final addressData = await getLocationAddress(latitude, longitude);
+    final String street = addressData[0].street;
+    final String postalcode = addressData[0].postalCode;
+    final String locality = addressData[0].locality;
+    final String country = addressData[0].country;
+    final String address = '$street, $postalcode, $locality, $country';
+
     setState(() {
-      mapPointCoords = LatLng(currLocn.latitude!, currLocn.longitude!);
-      Future.delayed(const Duration(milliseconds: 50), () {
-        mapController.move(mapPointCoords!, 17.0);
-      });
+      _pickedLocation = PlaceLocation(
+        latitude: latitude,
+        longitude: longitude,
+        address: address,
+      );
+      _isGettingLocation = false;
     });
-    widget.onSelectPlace(currLocn.latitude!, currLocn.longitude!);
+
+    widget.onSelectPlace(_pickedLocation!.latitude, _pickedLocation!.longitude);
+  }
+
+  void _getCurrentLocation() async {
+    Location location = Location();
+
+    bool serviceEnabled;
+    PermissionStatus permissionGranted;
+    LocationData locationData;
+
+    serviceEnabled = await location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await location.requestService();
+      if (!serviceEnabled) {
+        return;
+      }
+    }
+
+    permissionGranted = await location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) {
+        return;
+      }
+    }
+
+    setState(() {
+      _isGettingLocation = true;
+    });
+
+    locationData = await location.getLocation();
+    final lat = locationData.latitude;
+    final lng = locationData.longitude;
+
+    if (lat == null || lng == null) {
+      return;
+    }
+
+    _savePlace(lat, lng);
   }
 
   Future<void> _selectOnMap() async {
-    final selectedLocation = await Navigator.of(context).push<LatLng>(
+    final pickedLocation = await Navigator.of(context).push<LatLng>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (ctx) => const MapScreen(
-              isSelecting: true,
-            ),
+        builder: (ctx) => const MapScreen(isSelecting: true,),
       ),
     );
-    if (selectedLocation == null) {
+
+    if (pickedLocation == null) {
       return;
     }
-    setState(() {
-      mapPointCoords = selectedLocation;
-      Future.delayed(const Duration(milliseconds: 50), () {
-        mapController.move(mapPointCoords!, 17.0);
-      });
-    });
-    widget.onSelectPlace(selectedLocation.latitude, selectedLocation.longitude);
+
+    _savePlace(pickedLocation.latitude, pickedLocation.longitude);
   }
 
   @override
@@ -66,56 +116,80 @@ class _LocationInputState extends State<LocationInput> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      Container(
-        decoration:
-            BoxDecoration(border: Border.all(width: 1, color: Colors.grey)),
-        height: 170,
-        width: double.infinity,
-        child: mapPointCoords == null
-            ? const Center(child: Text('No Location'))
-            : FlutterMap(
-                mapController: mapController,
-                options: MapOptions(
-                  interactiveFlags: InteractiveFlag.none,
-                  center: LatLng(
-                      mapPointCoords!.latitude, mapPointCoords!.longitude),
-                  zoom: 13.0,
+    Widget previewContent = Text(
+      'No location chosen',
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+            color: Theme.of(context).colorScheme.onBackground,
+          ),
+    );
+
+    if (_pickedLocation != null) {
+      previewContent = FlutterMap(
+        mapController: mapController,
+        options: MapOptions(
+          interactiveFlags: InteractiveFlag.none,
+          center: LatLng(_pickedLocation!.latitude, _pickedLocation!.longitude),
+          zoom: 13.0,
+        ),
+        children: [
+          TileLayer(
+            urlTemplate:
+                'https://{s}.google.com/vt/lyrs=m&hl={hl}&x={x}&y={y}&z={z}',
+            additionalOptions: const {'hl': 'en'},
+            subdomains: const ['mt0', 'mt1', 'mt2', 'mt3'],
+          ),
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: LatLng(
+                    _pickedLocation!.latitude, _pickedLocation!.longitude),
+                builder: (context) => const Icon(
+                  Icons.location_on,
+                  size: 25,
+                  color: Colors.blue,
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://{s}.google.com/vt/lyrs=m&hl={hl}&x={x}&y={y}&z={z}',
-                    additionalOptions: const {'hl': 'en'},
-                    subdomains: const ['mt0', 'mt1', 'mt2', 'mt3'],
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: mapPointCoords!,
-                        builder: (context) => const Icon(
-                          Icons.location_on,
-                          size: 25,
-                          color: Colors.blue,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ),
-      ),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        TextButton.icon(
-          onPressed: _getLocn,
-          icon: const Icon(Icons.location_on),
-          label: const Text('Current Location'),
+            ],
+          ),
+        ],
+      );
+    }
+
+    if (_isGettingLocation) {
+      previewContent = const CircularProgressIndicator();
+    }
+
+    return Column(
+      children: [
+        Container(
+          height: 170,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: Border.all(
+              width: 1,
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+            ),
+          ),
+          child: previewContent,
         ),
-        TextButton.icon(
-          onPressed: _selectOnMap,
-          icon: const Icon(Icons.map),
-          label: const Text('Select on Map'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            TextButton.icon(
+              icon: const Icon(Icons.location_on),
+              label: const Text('Get Current Location'),
+              onPressed: _getCurrentLocation,
+            ),
+            TextButton.icon(
+              icon: const Icon(Icons.map),
+              label: const Text('Select on Map'),
+              onPressed: _selectOnMap,
+            ),
+          ],
         ),
-      ]),
-    ]);
+      ],
+    );
   }
 }

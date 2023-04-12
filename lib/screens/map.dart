@@ -1,31 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
-// ignore: depend_on_referenced_packages
 import 'package:latlong2/latlong.dart';
 
 import '../models/place.dart';
 
-class MapScreen extends StatefulWidget {
-  final PlaceLocation initialLocation;
-  final bool isSelecting;
-
+class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({
-    this.initialLocation =
-        const PlaceLocation(latitude: 65.01236, longitude: 25.46816),
-    this.isSelecting = false,
-    super.key
+    super.key,
+    this.location = const PlaceLocation(
+      latitude: 65.01236,
+      longitude: 25.46816,
+      address: '',
+    ),
+    this.isSelecting = true,
   });
 
+  final PlaceLocation location;
+  final bool isSelecting;
+
   @override
-  State<MapScreen> createState() => _MapScreenState();
+  ConsumerState<MapScreen> createState() {
+    return _MapScreenState();
+  }
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends ConsumerState<MapScreen> {
   LatLng? _pickedLocation;
-  MapController? mapController;
 
-  void _selectLocn(dynamic tapPosn, LatLng posn) {
-    debugPrint('MapScreen:_selectLocn: $posn');
+  void _selectLocation(dynamic tapPosn, LatLng posn) {
     setState(() {
       _pickedLocation = posn;
     });
@@ -35,25 +38,22 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select place'),
-        actions: [
-          if (widget.isSelecting)
-            IconButton(
-              onPressed: _pickedLocation == null
-                  ? null
-                  : () {
-                      Navigator.of(context).pop(_pickedLocation);
-                    },
-              icon: const Icon(Icons.check),
-            )
-        ],
-      ),
+          title:
+              Text(widget.isSelecting ? 'Pick your Location' : 'Your Location'),
+          actions: [
+            if (widget.isSelecting)
+              IconButton(
+                icon: const Icon(Icons.save),
+                onPressed: () {
+                  Navigator.of(context).pop(_pickedLocation);
+                },
+              ),
+          ]),
       body: FlutterMap(
         options: MapOptions(
-          center: LatLng(widget.initialLocation.latitude,
-              widget.initialLocation.longitude),
+          center: LatLng(widget.location.latitude, widget.location.longitude),
           zoom: 15.0,
-          onTap: widget.isSelecting ? _selectLocn : null,
+          onTap: widget.isSelecting ? _selectLocation : null,
         ),
         children: [
           TileLayer(
@@ -68,8 +68,8 @@ class _MapScreenState extends State<MapScreen> {
                 Marker(
                   point: _pickedLocation ??
                       LatLng(
-                        widget.initialLocation.latitude,
-                        widget.initialLocation.longitude,
+                          widget.location.latitude,
+                          widget.location.longitude,
                       ),
                   builder: (context) => const Icon(
                     Icons.location_on,
